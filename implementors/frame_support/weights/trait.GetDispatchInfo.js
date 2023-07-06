@@ -1,0 +1,4 @@
+(function() {var implementors = {
+"madara_runtime":[["impl GetDispatchInfo for <a class=\"enum\" href=\"madara_runtime/enum.RuntimeCall.html\" title=\"enum madara_runtime::RuntimeCall\">RuntimeCall</a>"]],
+"pallet_starknet":[["impl&lt;T: <a class=\"trait\" href=\"pallet_starknet/pallet/trait.Config.html\" title=\"trait pallet_starknet::pallet::Config\">Config</a>&gt; GetDispatchInfo for <a class=\"enum\" href=\"pallet_starknet/pallet/enum.Call.html\" title=\"enum pallet_starknet::pallet::Call\">Call</a>&lt;T&gt;"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

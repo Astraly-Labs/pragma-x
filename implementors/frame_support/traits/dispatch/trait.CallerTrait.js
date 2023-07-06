@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"madara_runtime":[["impl CallerTrait&lt;&lt;<a class=\"struct\" href=\"madara_runtime/struct.Runtime.html\" title=\"struct madara_runtime::Runtime\">Runtime</a> as Config&gt;::AccountId&gt; for <a class=\"enum\" href=\"madara_runtime/enum.OriginCaller.html\" title=\"enum madara_runtime::OriginCaller\">OriginCaller</a>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
