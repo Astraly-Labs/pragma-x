@@ -204,9 +204,9 @@ pub fn run() -> sc_cli::Result<()> {
                         Some(Testnet::Local) => {
                             cli.run.run_cmd.shared_params.chain = Some(madara_path + "/chain-specs/local-raw.json");
                         }
-                        Some(Testnet::Sharingan) => {
+                        Some(Testnet::Pragma) => {
                             cli.run.run_cmd.shared_params.chain =
-                                Some(madara_path + "/chain-specs/testnet-sharingan-raw.json");
+                                Some(madara_path + "/chain-specs/testnet-pragma-raw.json");
                         }
                         None => {}
                     };
