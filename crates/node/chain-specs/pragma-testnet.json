@@ -3,8 +3,8 @@
   "id": "pragma_testnet",
   "chainType": "Live",
   "bootNodes": [
-    "/ip4/13.39.108.253/tcp/30333/p2p/12D3KooWNrokkeC3R1CYHpBSPPDTLwFftSEfaenjHHV8Y9qHkdnN",
-    "/ip4/35.180.234.120/tcp/30333/p2p/12D3KooWScQEPaEYconzcgqvCzvtkZsLod3owtaoxmG1meTcL9Sy"
+    "/ip4/52.7.206.208/tcp/30333/p2p/12D3KooWNrokkeC3R1CYHpBSPPDTLwFftSEfaenjHHV8Y9qHkdnN",
+    "/ip4/52.7.206.208/tcp/30333/p2p/12D3KooWScQEPaEYconzcgqvCzvtkZsLod3owtaoxmG1meTcL9Sy"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,
