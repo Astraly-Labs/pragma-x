@@ -1275,14 +1275,14 @@
 <span class="kw">use </span>frame_support::traits::Time;
 <span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>mp_digest_log::MADARA_ENGINE_ID;
-<span class="kw">use </span>mp_starknet::block::{Block <span class="kw">as </span>StarknetBlock, Header <span class="kw">as </span>StarknetHeader, MaxTransactions};
+<span class="kw">use </span>mp_starknet::block::{Block <span class="kw">as </span>StarknetBlock, Header <span class="kw">as </span>StarknetHeader, MaxStorageSlots, MaxTransactions};
 <span class="kw">use </span>mp_starknet::crypto::commitment::{<span class="self">self</span>, calculate_contract_state_hash};
 <span class="kw">use </span>mp_starknet::execution::types::{
     CallEntryPointWrapper, ClassHashWrapper, ContractAddressWrapper, EntryPointTypeWrapper, Felt252Wrapper,
 };
 <span class="kw">use </span>mp_starknet::sequencer_address::{InherentError, InherentType, DEFAULT_SEQUENCER_ADDRESS, INHERENT_IDENTIFIER};
 <span class="kw">use </span>mp_starknet::storage::{StarknetStorageSchemaVersion, PALLET_STARKNET_SCHEMA};
-<span class="kw">use </span>mp_starknet::traits::hash::{CryptoHasherT, DefaultHasher, HasherT};
+<span class="kw">use </span>mp_starknet::traits::hash::{DefaultHasher, HasherT};
 <span class="kw">use </span>mp_starknet::transaction::types::{
     DeclareTransaction, DeployAccountTransaction, EventError, EventWrapper <span class="kw">as </span>StarknetEventType, InvokeTransaction,
     Transaction, TransactionExecutionInfoWrapper, TransactionReceiptWrapper, TxType,
@@ -1337,7 +1337,7 @@
         <span class="doccomment">/// Because this pallet emits events, it depends on the runtime&#39;s definition of an event.
         </span><span class="kw">type </span>RuntimeEvent: From&lt;Event&lt;<span class="self">Self</span>&gt;&gt; + IsType&lt;&lt;<span class="self">Self </span><span class="kw">as </span>frame_system::Config&gt;::RuntimeEvent&gt;;
         <span class="doccomment">/// The hashing function to use.
-        </span><span class="kw">type </span>SystemHash: HasherT + DefaultHasher + CryptoHasherT;
+        </span><span class="kw">type </span>SystemHash: HasherT + DefaultHasher;
         <span class="doccomment">/// The time idk what.
         </span><span class="kw">type </span>TimestampProvider: Time;
         <span class="doccomment">/// A configuration for base priority of unsigned transactions.
@@ -1430,12 +1430,12 @@
     /// Mapping of contract address to state trie.
     </span><span class="attr">#[pallet::storage]
     #[pallet::unbounded]
-    #[pallet::getter(<span class="kw">fn </span>contract_tries)]
+    #[pallet::getter(<span class="kw">fn </span>contract_state_trie_by_address)]
     </span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>ContractTries&lt;T: Config&gt; = StorageMap&lt;<span class="kw">_</span>, Identity, ContractAddressWrapper, StateTrie, OptionQuery&gt;;
 
     <span class="doccomment">/// The Starknet pallet storage items.
     /// STORAGE
-    /// Mapping of contract address to state trie.
+    /// Mapping of contract address to state root.
     </span><span class="attr">#[pallet::storage]
     #[pallet::getter(<span class="kw">fn </span>contract_state_root_by_address)]
     </span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>ContractsStateRoots&lt;T: Config&gt; =
@@ -1447,7 +1447,7 @@
     </span><span class="attr">#[pallet::storage]
     #[pallet::getter(<span class="kw">fn </span>pending_storage_changes)]
     </span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>PendingStorageChanges&lt;T: Config&gt; =
-        StorageMap&lt;<span class="kw">_</span>, Identity, ContractAddressWrapper, BoundedVec&lt;StorageSlotWrapper, MaxTransactions&gt;, ValueQuery&gt;;
+        StorageMap&lt;<span class="kw">_</span>, Identity, ContractAddressWrapper, BoundedVec&lt;StorageSlotWrapper, MaxStorageSlots&gt;, ValueQuery&gt;;
 
     <span class="doccomment">/// Current building block&#39;s events.
     </span><span class="comment">// TODO: This is redundant information but more performant
@@ -1727,7 +1727,7 @@
                     actual_fee,
                     actual_resources: _actual_resources,
                 }) =&gt; {
-                    <span class="macro">log!</span>(debug, <span class="string">&quot;Transaction executed successfully: {:?}&quot;</span>, execute_call_info);
+                    <span class="macro">log!</span>(debug, <span class="string">&quot;Invoke Transaction executed successfully: {:?}&quot;</span>, execute_call_info);
 
                     <span class="kw">let </span>events = <span class="self">Self</span>::emit_events_for_calls(execute_call_info, fee_transfer_call_info)<span class="question-mark">?</span>;
 
@@ -1739,7 +1739,7 @@
                     }
                 }
                 <span class="prelude-val">Err</span>(e) =&gt; {
-                    <span class="macro">log!</span>(error, <span class="string">&quot;Transaction execution failed: {:?}&quot;</span>, e);
+                    <span class="macro">log!</span>(error, <span class="string">&quot;Invoke Transaction execution failed: {:?}&quot;</span>, e);
                     <span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;T&gt;::TransactionExecutionFailed.into());
                 }
             };
@@ -1800,7 +1800,7 @@
                     actual_fee,
                     actual_resources: _actual_resources,
                 }) =&gt; {
-                    <span class="macro">log!</span>(trace, <span class="string">&quot;Transaction executed successfully: {:?}&quot;</span>, execute_call_info);
+                    <span class="macro">log!</span>(trace, <span class="string">&quot;Declare Transaction executed successfully: {:?}&quot;</span>, execute_call_info);
 
                     <span class="kw">let </span>events = <span class="self">Self</span>::emit_events_for_calls(execute_call_info, fee_transfer_call_info)<span class="question-mark">?</span>;
 
@@ -1812,7 +1812,7 @@
                     }
                 }
                 <span class="prelude-val">Err</span>(e) =&gt; {
-                    <span class="macro">log!</span>(error, <span class="string">&quot;Transaction execution failed: {:?}&quot;</span>, e);
+                    <span class="macro">log!</span>(error, <span class="string">&quot;Declare Transaction execution failed: {:?}&quot;</span>, e);
                     <span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;T&gt;::TransactionExecutionFailed.into());
                 }
             };
@@ -1871,7 +1871,7 @@
                     actual_fee,
                     actual_resources: _actual_resources,
                 }) =&gt; {
-                    <span class="macro">log!</span>(trace, <span class="string">&quot;Transaction executed successfully: {:?}&quot;</span>, execute_call_info);
+                    <span class="macro">log!</span>(trace, <span class="string">&quot;Deploy_account Transaction executed successfully: {:?}&quot;</span>, execute_call_info);
 
                     <span class="kw">let </span>events = <span class="self">Self</span>::emit_events_for_calls(execute_call_info, fee_transfer_call_info)<span class="question-mark">?</span>;
 
@@ -1883,7 +1883,7 @@
                     }
                 }
                 <span class="prelude-val">Err</span>(e) =&gt; {
-                    <span class="macro">log!</span>(error, <span class="string">&quot;Transaction execution failed: {:?}&quot;</span>, e);
+                    <span class="macro">log!</span>(error, <span class="string">&quot;Deploy_account Transaction execution failed: {:?}&quot;</span>, e);
                     <span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;T&gt;::TransactionExecutionFailed.into());
                 }
             };
@@ -1927,10 +1927,10 @@
                 <span class="prelude-val">None</span>,
             ) {
                 <span class="prelude-val">Ok</span>(v) =&gt; {
-                    <span class="macro">log!</span>(debug, <span class="string">&quot;Transaction executed successfully: {:?}&quot;</span>, v);
+                    <span class="macro">log!</span>(debug, <span class="string">&quot;Successfully consumed a message from L1: {:?}&quot;</span>, v);
                 }
                 <span class="prelude-val">Err</span>(e) =&gt; {
-                    <span class="macro">log!</span>(error, <span class="string">&quot;Transaction execution failed: {:?}&quot;</span>, e);
+                    <span class="macro">log!</span>(error, <span class="string">&quot;Failed to consume a message from L1: {:?}&quot;</span>, e);
                     <span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;T&gt;::TransactionExecutionFailed.into());
                 }
             }
@@ -2169,12 +2169,12 @@
 
         <span class="kw">match </span>entrypoint.execute(<span class="kw-2">&amp;mut </span>BlockifierStateAdapter::&lt;T&gt;::default(), block_context) {
             <span class="prelude-val">Ok</span>(v) =&gt; {
-                <span class="macro">log!</span>(debug, <span class="string">&quot;Transaction executed successfully: {:?}&quot;</span>, v);
+                <span class="macro">log!</span>(debug, <span class="string">&quot;Successfully called a smart contract function: {:?}&quot;</span>, v);
                 <span class="kw">let </span>result = v.execution.retdata.<span class="number">0</span>.iter().map(|x| (<span class="kw-2">*</span>x).into()).collect();
                 <span class="prelude-val">Ok</span>(result)
             }
             <span class="prelude-val">Err</span>(e) =&gt; {
-                <span class="macro">log!</span>(error, <span class="string">&quot;Transaction execution failed: {:?}&quot;</span>, e);
+                <span class="macro">log!</span>(error, <span class="string">&quot;Failed to call a smart contract function: {:?}&quot;</span>, e);
                 <span class="prelude-val">Err</span>(Error::&lt;T&gt;::TransactionExecutionFailed.into())
             }
         }
@@ -2309,11 +2309,11 @@
         <span class="kw">match </span>transaction.execute(
             <span class="kw-2">&amp;mut </span>BlockifierStateAdapter::&lt;T&gt;::default(),
             <span class="kw-2">&amp;</span><span class="self">Self</span>::get_block_context(),
-            TxType::Invoke,
-            <span class="prelude-val">None</span>,
+            transaction.tx_type.clone(),
+            transaction.contract_class.clone(),
         ) {
             <span class="prelude-val">Ok</span>(v) =&gt; {
-                <span class="macro">log!</span>(debug, <span class="string">&quot;Transaction executed successfully: {:?}&quot;</span>, v);
+                <span class="macro">log!</span>(debug, <span class="string">&quot;Successfully estimated fee: {:?}&quot;</span>, v);
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(gas_usage) = v.actual_resources.get(<span class="string">&quot;l1_gas_usage&quot;</span>) {
                     <span class="prelude-val">Ok</span>((v.actual_fee.<span class="number">0 </span><span class="kw">as </span>u64, <span class="kw-2">*</span>gas_usage <span class="kw">as </span>u64))
                 } <span class="kw">else </span>{
@@ -2321,7 +2321,7 @@
                 }
             }
             <span class="prelude-val">Err</span>(e) =&gt; {
-                <span class="macro">log!</span>(error, <span class="string">&quot;Transaction execution failed: {:?}&quot;</span>, e);
+                <span class="macro">log!</span>(error, <span class="string">&quot;Failed to estimate fee: {:?}&quot;</span>, e);
                 <span class="prelude-val">Err</span>(Error::&lt;T&gt;::TransactionExecutionFailed.into())
             }
         }

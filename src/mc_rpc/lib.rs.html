@@ -1012,6 +1012,25 @@
 <a href="#1012" id="1012">1012</a>
 <a href="#1013" id="1013">1013</a>
 <a href="#1014" id="1014">1014</a>
+<a href="#1015" id="1015">1015</a>
+<a href="#1016" id="1016">1016</a>
+<a href="#1017" id="1017">1017</a>
+<a href="#1018" id="1018">1018</a>
+<a href="#1019" id="1019">1019</a>
+<a href="#1020" id="1020">1020</a>
+<a href="#1021" id="1021">1021</a>
+<a href="#1022" id="1022">1022</a>
+<a href="#1023" id="1023">1023</a>
+<a href="#1024" id="1024">1024</a>
+<a href="#1025" id="1025">1025</a>
+<a href="#1026" id="1026">1026</a>
+<a href="#1027" id="1027">1027</a>
+<a href="#1028" id="1028">1028</a>
+<a href="#1029" id="1029">1029</a>
+<a href="#1030" id="1030">1030</a>
+<a href="#1031" id="1031">1031</a>
+<a href="#1032" id="1032">1032</a>
+<a href="#1033" id="1033">1033</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Starknet RPC server API implementation
 //!
 //! It uses the madara client and backend in order to answer queries.
@@ -1060,7 +1079,7 @@
     Transaction, TransactionStatus,
 };
 
-<span class="kw">use </span><span class="kw">crate</span>::constants::{MAX_EVENTS_CHUNK_SIZE, MAX_EVENTS_KEYS, MAX_KEYS};
+<span class="kw">use </span><span class="kw">crate</span>::constants::{MAX_EVENTS_CHUNK_SIZE, MAX_EVENTS_KEYS, MAX_STORAGE_PROOF_KEYS_BY_QUERY};
 <span class="kw">use </span><span class="kw">crate</span>::types::RpcEventFilter;
 
 <span class="doccomment">/// A Starknet RPC server for Madara
@@ -1390,13 +1409,13 @@
             .for_block_hash(<span class="self">self</span>.client.as_ref(), substrate_block_hash)
             .contract_class_by_class_hash(substrate_block_hash, class_hash.into())
             .ok_or_else(|| {
-                <span class="macro">error!</span>(<span class="string">&quot;Failed to retrieve contract class from hash &#39;{class_hash}&#39;&quot;</span>);
-                StarknetRpcApiError::ContractNotFound
+                <span class="macro">error!</span>(<span class="string">&quot;Failed to retrieve contract class from hash &#39;{class_hash:x}&#39;&quot;</span>);
+                StarknetRpcApiError::ClassHashNotFound
             })<span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>(to_rpc_contract_class(contract_class).map_err(|e| {
             <span class="macro">error!</span>(<span class="string">&quot;Failed to convert contract class from hash &#39;{class_hash}&#39; to RPC contract class: {e}&quot;</span>);
-            StarknetRpcApiError::ContractNotFound
+            StarknetRpcApiError::InternalServerError
         })<span class="question-mark">?</span>)
     }
 
@@ -1636,21 +1655,25 @@
 
         <span class="kw">let </span>block = get_block_by_block_hash(<span class="self">self</span>.client.as_ref(), substrate_block_hash).unwrap_or_default();
 
-        <span class="kw">let </span>parent_block_hash = (TryInto::&lt;FieldElement&gt;::try_into(block.header().parent_block_hash)).unwrap();
+        <span class="kw">let </span>old_root = <span class="kw">if </span>block.header().block_number &gt; <span class="number">0 </span>{
+            <span class="kw">let </span>parent_block_hash = (TryInto::&lt;FieldElement&gt;::try_into(block.header().parent_block_hash)).unwrap();
+            <span class="kw">let </span>substrate_parent_block_hash =
+                <span class="self">self</span>.substrate_block_hash_from_starknet_block(BlockId::Hash(parent_block_hash)).map_err(|e| {
+                    <span class="macro">error!</span>(<span class="string">&quot;&#39;{e}&#39;&quot;</span>);
+                    StarknetRpcApiError::BlockNotFound
+                })<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>substrate_parent_block_hash =
-            <span class="self">self</span>.substrate_block_hash_from_starknet_block(BlockId::Hash(parent_block_hash)).map_err(|e| {
-                <span class="macro">error!</span>(<span class="string">&quot;&#39;{e}&#39;&quot;</span>);
-                StarknetRpcApiError::BlockNotFound
-            })<span class="question-mark">?</span>;
-
-        <span class="kw">let </span>parent_block =
-            get_block_by_block_hash(<span class="self">self</span>.client.as_ref(), substrate_parent_block_hash).unwrap_or_default();
+            <span class="kw">let </span>parent_block =
+                get_block_by_block_hash(<span class="self">self</span>.client.as_ref(), substrate_parent_block_hash).unwrap_or_default();
+            parent_block.header().global_state_root.into()
+        } <span class="kw">else </span>{
+            FieldElement::default()
+        };
 
         <span class="prelude-val">Ok</span>(StateUpdate {
             block_hash: block.header().hash(<span class="kw-2">*</span><span class="self">self</span>.hasher).into(),
             new_root: block.header().global_state_root.into(),
-            old_root: parent_block.header().global_state_root.into(),
+            old_root,
             state_diff: StateDiff {
                 storage_diffs: Vec::new(),
                 deprecated_declared_classes: Vec::new(),
@@ -1882,12 +1905,26 @@
         }
     }
 
-    <span class="kw">fn </span>get_proof(<span class="kw-2">&amp;</span><span class="self">self</span>, get_proof_input: RpcGetProofInput) -&gt; RpcResult&lt;RpcGetProofOutput&gt; {
-        <span class="kw">if </span>get_proof_input.keys.len() &gt; MAX_KEYS {
+    <span class="doccomment">/// This endpoint aims to do the same as [EIP-1186](https://eips.ethereum.org/EIPS/eip-1186)
+    /// It should provide all the data necessary for someone to verify some storage
+    /// within a starknet smart contract thanks to its merkle proof.
+    ///
+    /// It takes advantages from the facts that the whole state is built as 2 tries:
+    /// 1. The contracts trie : stores state data of the contracts based on their address
+    /// 2. The classes trie : associates class hashes with classes
+    ///
+    /// More information on Starknet&#39;s state [here](https://docs.starknet.io/documentation/architecture_and_concepts/State/starknet-state/)
+    ///
+    /// A storage proof is *just* a merkle proof of the subtree which you can find the root within
+    /// the contracts trie
+    ///
+    /// This implementation is highly inspired by previous work on [pathfinder](https://github.com/eqlabs/pathfinder/pull/726)
+    </span><span class="kw">fn </span>get_proof(<span class="kw-2">&amp;</span><span class="self">self</span>, get_proof_input: RpcGetProofInput) -&gt; RpcResult&lt;RpcGetProofOutput&gt; {
+        <span class="kw">if </span>get_proof_input.keys.len() &gt; MAX_STORAGE_PROOF_KEYS_BY_QUERY {
             <span class="macro">error!</span>(
                 <span class="string">&quot;Too many keys requested! limit: {:?},
 				requested: {:?}&quot;</span>,
-                MAX_KEYS,
+                MAX_STORAGE_PROOF_KEYS_BY_QUERY,
                 get_proof_input.keys.len() <span class="kw">as </span>u32
             );
             <span class="kw">return </span><span class="prelude-val">Err</span>(StarknetRpcApiError::ProofLimitExceeded.into());
@@ -1912,7 +1949,14 @@
                 StarknetRpcApiError::InternalServerError
             })<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>class_commitment: <span class="prelude-ty">Option</span>&lt;FieldElement&gt; = <span class="prelude-val">Some</span>(state_commitments.class_commitment.commit().into());
+        <span class="kw">let </span>class_commitment: FieldElement = state_commitments.class_commitment.commit().into();
+        <span class="kw">let </span>storage_commitment: FieldElement = state_commitments.storage_commitment.commit().into();
+
+        <span class="kw">let </span>(state_commitment, class_commitment) = <span class="kw">if </span>class_commitment == FieldElement::ZERO {
+            (<span class="prelude-val">None</span>, <span class="prelude-val">None</span>)
+        } <span class="kw">else </span>{
+            (<span class="prelude-val">Some</span>(global_state_root.<span class="number">0</span>), <span class="prelude-val">Some</span>(class_commitment))
+        };
 
         <span class="comment">// Generate a proof for this contract. If the contract does not exist, this will
         // be a &quot;non membership&quot; proof.
@@ -1925,7 +1969,7 @@
                 <span class="prelude-val">None </span>=&gt; {
                     <span class="comment">// Contract not found: return the proof of non membership that we generated earlier.
                     </span><span class="kw">return </span><span class="prelude-val">Ok</span>(RpcGetProofOutput {
-                        state_commitment: <span class="prelude-val">Some</span>(global_state_root.<span class="number">0</span>),
+                        state_commitment,
                         class_commitment,
                         contract_proof,
                         contract_data: <span class="prelude-val">None</span>,
@@ -1933,7 +1977,10 @@
                 }
             };
 
-        <span class="comment">// At this point we know the contract exists, so errors should never be thrown!
+        <span class="comment">// In theory we got some state hash in the tree that means the contract&#39;s state
+        // has been committed already so it exists and no error should be thrown.
+        // If an error is still thrown it&#39;s fine and handy for debugging.
+
         </span><span class="kw">let </span>class_hash = <span class="self">self
             </span>.overrides
             .for_block_hash(<span class="self">self</span>.client.as_ref(), substrate_block_hash)
@@ -1952,37 +1999,28 @@
                 StarknetRpcApiError::ContractNotFound
             })<span class="question-mark">?</span>;
 
-        <span class="comment">// Get contract root from runtime
-        // let contract_root = self
-        //     .overrides
-        //     .for_block_hash(self.client.as_ref(), substrate_block_hash)
-        //     .contract_state_root_by_address(substrate_block_hash,
-        // get_proof_input.contract_address.into())     .ok_or_else(|| {
-        //         error!(&quot;Failed to get contract root at &#39;{0}&#39;&quot;, get_proof_input.contract_address);
-        //         StarknetRpcApiError::ContractNotFound
-        //     })?;
+        <span class="kw">let </span><span class="kw-2">mut </span>contract_state_trie = <span class="self">self
+            </span>.overrides
+            .for_block_hash(<span class="self">self</span>.client.as_ref(), substrate_block_hash)
+            .contract_state_trie_by_address(substrate_block_hash, get_proof_input.contract_address.into())
+            .ok_or_else(|| {
+                <span class="macro">error!</span>(<span class="string">&quot;Failed to get contract state trie at &#39;{0}&#39;&quot;</span>, get_proof_input.contract_address);
+                StarknetRpcApiError::ContractNotFound
+            })<span class="question-mark">?</span>;
 
-        </span><span class="kw">let </span>storage_proofs: Vec&lt;Vec&lt;ProofNode&gt;&gt; = get_proof_input
-            .keys
-            .iter()
-            .map(|k| state_commitments.storage_commitment.get_proof(Felt252Wrapper(<span class="kw-2">*</span>k)))
-            .collect();
+        <span class="kw">let </span>storage_proofs: Vec&lt;Vec&lt;ProofNode&gt;&gt; =
+            get_proof_input.keys.iter().map(|k| contract_state_trie.get_proof(Felt252Wrapper(<span class="kw-2">*</span>k))).collect();
 
         <span class="kw">let </span>contract_data = ContractData {
             class_hash: class_hash.into(),
             nonce: nonce.into(),
-            root: contract_state_hash.into(),
-            contract_state_hash_version: FieldElement::ZERO, <span class="comment">/* Currently, this is defined as 0. Might change in the
-                                                              * future. */
-            </span>storage_proofs,
+            root: contract_state_trie.commit().into(),
+            <span class="comment">// Currently, this is defined as 0. Might change in the future
+            </span>contract_state_hash_version: FieldElement::ZERO,
+            storage_proofs,
         };
 
-        <span class="prelude-val">Ok</span>(RpcGetProofOutput {
-            state_commitment: <span class="prelude-val">Some</span>(global_state_root.<span class="number">0</span>),
-            class_commitment,
-            contract_proof,
-            contract_data: <span class="prelude-val">Some</span>(contract_data),
-        })
+        <span class="prelude-val">Ok</span>(RpcGetProofOutput { state_commitment, class_commitment, contract_proof, contract_data: <span class="prelude-val">Some</span>(contract_data) })
     }
 }
 
