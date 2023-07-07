@@ -5,8 +5,16 @@ use starknet_core::types::{BlockId, FieldElement};
 
 #[derive(Deserialize, Debug, PartialEq, Eq)]
 pub struct RpcGetProofInput {
+    /// Block to prove
     pub block_id: BlockId,
+    /// Address of the contract to prove the storage of
     pub contract_address: FieldElement,
+    /// Storage keys to be proven
+    /// More info can be found [here](https://docs.starknet.io/documentation/architecture_and_concepts/Contracts/contract-storage/)
+    /// storage_var address is the sn_keccak of the name hashed with the pedersen hash of the keys
+    ///
+    /// e.g balance_of(key1: felt, key2: felt) -> pedersen("balance_of", pedersen("key1",
+    /// pedersen("key2")))
     pub keys: Vec<FieldElement>,
 }
 
@@ -16,11 +24,11 @@ pub struct RpcGetProofInput {
 #[skip_serializing_none]
 pub struct RpcGetProofOutput {
     /// The global state commitment for Starknet 0.11.0 blocks onwards, if absent the hash
-    /// of the first node in the [contract_proof](GetProofOutput#contract_proof) is the global state
-    /// commitment.
+    /// of the first node in the [contract_proof](RpcGetProofOutput#contract_proof) is the global
+    /// state commitment.
     pub state_commitment: Option<FieldElement>,
     /// Required to verify that the hash of the class commitment and the root of the
-    /// [contract_proof](GetProofOutput::contract_proof) matches the
+    /// [contract_proof](RpcGetProofOutput::contract_proof) matches the
     /// [state_commitment](Self#state_commitment). Present only for Starknet blocks 0.11.0 onwards.
     pub class_commitment: Option<FieldElement>,
 

@@ -74,14 +74,14 @@ use frame_support::pallet_prelude::*;
 use frame_support::traits::Time;
 use frame_system::pallet_prelude::*;
 use mp_digest_log::MADARA_ENGINE_ID;
-use mp_starknet::block::{Block as StarknetBlock, Header as StarknetHeader, MaxTransactions};
+use mp_starknet::block::{Block as StarknetBlock, Header as StarknetHeader, MaxStorageSlots, MaxTransactions};
 use mp_starknet::crypto::commitment::{self, calculate_contract_state_hash};
 use mp_starknet::execution::types::{
     CallEntryPointWrapper, ClassHashWrapper, ContractAddressWrapper, EntryPointTypeWrapper, Felt252Wrapper,
 };
 use mp_starknet::sequencer_address::{InherentError, InherentType, DEFAULT_SEQUENCER_ADDRESS, INHERENT_IDENTIFIER};
 use mp_starknet::storage::{StarknetStorageSchemaVersion, PALLET_STARKNET_SCHEMA};
-use mp_starknet::traits::hash::{CryptoHasherT, DefaultHasher, HasherT};
+use mp_starknet::traits::hash::{DefaultHasher, HasherT};
 use mp_starknet::transaction::types::{
     DeclareTransaction, DeployAccountTransaction, EventError, EventWrapper as StarknetEventType, InvokeTransaction,
     Transaction, TransactionExecutionInfoWrapper, TransactionReceiptWrapper, TxType,
@@ -136,7 +136,7 @@ pub mod pallet {
         /// Because this pallet emits events, it depends on the runtime's definition of an event.
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         /// The hashing function to use.
-        type SystemHash: HasherT + DefaultHasher + CryptoHasherT;
+        type SystemHash: HasherT + DefaultHasher;
         /// The time idk what.
         type TimestampProvider: Time;
         /// A configuration for base priority of unsigned transactions.
@@ -229,12 +229,12 @@ pub mod pallet {
     /// Mapping of contract address to state trie.
     #[pallet::storage]
     #[pallet::unbounded]
-    #[pallet::getter(fn contract_tries)]
+    #[pallet::getter(fn contract_state_trie_by_address)]
     pub(super) type ContractTries<T: Config> = StorageMap<_, Identity, ContractAddressWrapper, StateTrie, OptionQuery>;
 
     /// The Starknet pallet storage items.
     /// STORAGE
-    /// Mapping of contract address to state trie.
+    /// Mapping of contract address to state root.
     #[pallet::storage]
     #[pallet::getter(fn contract_state_root_by_address)]
     pub(super) type ContractsStateRoots<T: Config> =
@@ -246,7 +246,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn pending_storage_changes)]
     pub(super) type PendingStorageChanges<T: Config> =
-        StorageMap<_, Identity, ContractAddressWrapper, BoundedVec<StorageSlotWrapper, MaxTransactions>, ValueQuery>;
+        StorageMap<_, Identity, ContractAddressWrapper, BoundedVec<StorageSlotWrapper, MaxStorageSlots>, ValueQuery>;
 
     /// Current building block's events.
     // TODO: This is redundant information but more performant
@@ -526,7 +526,7 @@ pub mod pallet {
                     actual_fee,
                     actual_resources: _actual_resources,
                 }) => {
-                    log!(debug, "Transaction executed successfully: {:?}", execute_call_info);
+                    log!(debug, "Invoke Transaction executed successfully: {:?}", execute_call_info);
 
                     let events = Self::emit_events_for_calls(execute_call_info, fee_transfer_call_info)?;
 
@@ -538,7 +538,7 @@ pub mod pallet {
                     }
                 }
                 Err(e) => {
-                    log!(error, "Transaction execution failed: {:?}", e);
+                    log!(error, "Invoke Transaction execution failed: {:?}", e);
                     return Err(Error::<T>::TransactionExecutionFailed.into());
                 }
             };
@@ -599,7 +599,7 @@ pub mod pallet {
                     actual_fee,
                     actual_resources: _actual_resources,
                 }) => {
-                    log!(trace, "Transaction executed successfully: {:?}", execute_call_info);
+                    log!(trace, "Declare Transaction executed successfully: {:?}", execute_call_info);
 
                     let events = Self::emit_events_for_calls(execute_call_info, fee_transfer_call_info)?;
 
@@ -611,7 +611,7 @@ pub mod pallet {
                     }
                 }
                 Err(e) => {
-                    log!(error, "Transaction execution failed: {:?}", e);
+                    log!(error, "Declare Transaction execution failed: {:?}", e);
                     return Err(Error::<T>::TransactionExecutionFailed.into());
                 }
             };
@@ -670,7 +670,7 @@ pub mod pallet {
                     actual_fee,
                     actual_resources: _actual_resources,
                 }) => {
-                    log!(trace, "Transaction executed successfully: {:?}", execute_call_info);
+                    log!(trace, "Deploy_account Transaction executed successfully: {:?}", execute_call_info);
 
                     let events = Self::emit_events_for_calls(execute_call_info, fee_transfer_call_info)?;
 
@@ -682,7 +682,7 @@ pub mod pallet {
                     }
                 }
                 Err(e) => {
-                    log!(error, "Transaction execution failed: {:?}", e);
+                    log!(error, "Deploy_account Transaction execution failed: {:?}", e);
                     return Err(Error::<T>::TransactionExecutionFailed.into());
                 }
             };
@@ -726,10 +726,10 @@ pub mod pallet {
                 None,
             ) {
                 Ok(v) => {
-                    log!(debug, "Transaction executed successfully: {:?}", v);
+                    log!(debug, "Successfully consumed a message from L1: {:?}", v);
                 }
                 Err(e) => {
-                    log!(error, "Transaction execution failed: {:?}", e);
+                    log!(error, "Failed to consume a message from L1: {:?}", e);
                     return Err(Error::<T>::TransactionExecutionFailed.into());
                 }
             }
@@ -968,12 +968,12 @@ impl<T: Config> Pallet<T> {
 
         match entrypoint.execute(&mut BlockifierStateAdapter::<T>::default(), block_context) {
             Ok(v) => {
-                log!(debug, "Transaction executed successfully: {:?}", v);
+                log!(debug, "Successfully called a smart contract function: {:?}", v);
                 let result = v.execution.retdata.0.iter().map(|x| (*x).into()).collect();
                 Ok(result)
             }
             Err(e) => {
-                log!(error, "Transaction execution failed: {:?}", e);
+                log!(error, "Failed to call a smart contract function: {:?}", e);
                 Err(Error::<T>::TransactionExecutionFailed.into())
             }
         }
@@ -1108,11 +1108,11 @@ impl<T: Config> Pallet<T> {
         match transaction.execute(
             &mut BlockifierStateAdapter::<T>::default(),
             &Self::get_block_context(),
-            TxType::Invoke,
-            None,
+            transaction.tx_type.clone(),
+            transaction.contract_class.clone(),
         ) {
             Ok(v) => {
-                log!(debug, "Transaction executed successfully: {:?}", v);
+                log!(debug, "Successfully estimated fee: {:?}", v);
                 if let Some(gas_usage) = v.actual_resources.get("l1_gas_usage") {
                     Ok((v.actual_fee.0 as u64, *gas_usage as u64))
                 } else {
@@ -1120,7 +1120,7 @@ impl<T: Config> Pallet<T> {
                 }
             }
             Err(e) => {
-                log!(error, "Transaction execution failed: {:?}", e);
+                log!(error, "Failed to estimate fee: {:?}", e);
                 Err(Error::<T>::TransactionExecutionFailed.into())
             }
         }
