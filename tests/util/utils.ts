@@ -60,7 +60,7 @@ export async function rpcTransfer(
     undefined,
     {
       nonce: nonce.value,
-      maxFee: maxFee ?? "12345678",
+      maxFee: maxFee ?? "123456",
     },
   );
 

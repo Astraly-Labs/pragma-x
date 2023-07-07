@@ -288,4 +288,21 @@ where
         let api = self.client.runtime_api();
         api.contract_state_root_by_address(block_hash, address).ok()?
     }
+
+    /// Return the contract state trie for a provided block hash
+    ///
+    /// # Arguments
+    ///
+    /// * `block_hash` - The block hash
+    ///
+    /// # Returns
+    /// * `Some(state_trie)` - The contract state trie for the provided block hash
+    fn contract_state_trie_by_address(
+        &self,
+        block_hash: <B as BlockT>::Hash,
+        address: ContractAddressWrapper,
+    ) -> Option<StateTrie> {
+        let api = self.client.runtime_api();
+        api.contract_state_trie_by_address(block_hash, address).ok()?
+    }
 }
