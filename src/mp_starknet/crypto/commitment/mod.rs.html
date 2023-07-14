@@ -379,7 +379,7 @@
 <span class="kw">use </span>bitvec::vec::BitVec;
 <span class="kw">use </span>starknet_crypto::FieldElement;
 
-<span class="kw">use </span><span class="kw">super</span>::hash::poseidon::PoseidonHasher;
+<span class="kw">use </span><span class="kw">super</span>::hash::pedersen::PedersenHasher;
 <span class="kw">use </span><span class="kw">super</span>::merkle_patricia_tree::merkle_tree::{MerkleTree, NodesMapping, ProofNode};
 <span class="kw">use </span><span class="kw">super</span>::merkle_patricia_tree::ref_merkle_tree::RefMerkleTree;
 <span class="kw">use </span><span class="kw">crate</span>::execution::types::Felt252Wrapper;
@@ -646,7 +646,7 @@
 ///
 /// * `transaction` - The invoke transaction to get the hash of.
 </span><span class="kw">pub fn </span>calculate_invoke_tx_hash(transaction: InvokeTransaction, chain_id: Felt252Wrapper) -&gt; Felt252Wrapper {
-    calculate_transaction_hash_common::&lt;PoseidonHasher&gt;(
+    calculate_transaction_hash_common::&lt;PedersenHasher&gt;(
         transaction.sender_address,
         transaction.calldata.as_slice(),
         transaction.max_fee,
@@ -664,7 +664,7 @@
 ///
 /// * `transaction` - The declare transaction to get the hash of.
 </span><span class="kw">pub fn </span>calculate_declare_tx_hash(transaction: DeclareTransaction, chain_id: Felt252Wrapper) -&gt; Felt252Wrapper {
-    calculate_transaction_hash_common::&lt;PoseidonHasher&gt;(
+    calculate_transaction_hash_common::&lt;PedersenHasher&gt;(
         transaction.sender_address,
         <span class="kw-2">&amp;</span>[transaction.class_hash],
         transaction.max_fee,
@@ -686,7 +686,7 @@
     chain_id: Felt252Wrapper,
     address: Felt252Wrapper,
 ) -&gt; Felt252Wrapper {
-    calculate_transaction_hash_common::&lt;PoseidonHasher&gt;(
+    calculate_transaction_hash_common::&lt;PedersenHasher&gt;(
         address,
         <span class="kw-2">&amp;</span><span class="macro">vec!</span>[<span class="macro">vec!</span>[transaction.account_class_hash, transaction.salt], transaction.calldata.to_vec()].concat(),
         transaction.max_fee,
