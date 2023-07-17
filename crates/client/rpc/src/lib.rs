@@ -918,7 +918,6 @@ where
 
         let class_commitment: FieldElement = state_commitments.class_commitment.commit().into();
         let storage_commitment: FieldElement = state_commitments.storage_commitment.commit().into();
-
         let (state_commitment, class_commitment) = if class_commitment == FieldElement::ZERO {
             (None, None)
         } else {
