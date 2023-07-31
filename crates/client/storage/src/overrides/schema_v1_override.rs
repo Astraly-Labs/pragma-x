@@ -183,4 +183,16 @@ where
             &StorageKey(storage_key_build(storage_contract_state_root_prefix, &self.encode_storage_key(&address))),
         )
     }
+
+    fn contract_state_root_by_address(
+        &self,
+        block_hash: <B as BlockT>::Hash,
+        address: ContractAddressWrapper,
+    ) -> Option<ClassHashWrapper> {
+        let storage_contract_state_root_prefix = storage_prefix_build(PALLET_STARKNET, STARKNET_CONTRACT_STATE_ROOT);
+        self.query_storage::<ClassHashWrapper>(
+            block_hash,
+            &StorageKey(storage_key_build(storage_contract_state_root_prefix, &self.encode_storage_key(&address))),
+        )
+    }
 }

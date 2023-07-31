@@ -259,4 +259,33 @@ where
         let api = self.client.runtime_api();
         api.contract_state_trie_by_address(block_hash, address).ok()?
     }
+
+    /// Return the state commitments for a provided block hash
+    ///
+    /// # Arguments
+    ///
+    /// * `block_hash` - The block hash
+    ///
+    /// # Returns
+    /// * `Some(commitments)` - The state commitments for the provided block hash
+    fn state_commitments(&self, block_hash: <B as BlockT>::Hash) -> Option<StateCommitments> {
+        self.client.runtime_api().get_state_commitments(block_hash).ok()
+    }
+
+    /// Return the contract root for a provided block hash
+    ///
+    /// # Arguments
+    ///
+    /// * `block_hash` - The block hash
+    ///
+    /// # Returns
+    /// * `Some(contract_root)` - The contract root for the provided block hash
+    fn contract_state_root_by_address(
+        &self,
+        block_hash: <B as BlockT>::Hash,
+        address: ContractAddressWrapper,
+    ) -> Option<Felt252Wrapper> {
+        let api = self.client.runtime_api();
+        api.contract_state_root_by_address(block_hash, address).ok()?
+    }
 }
