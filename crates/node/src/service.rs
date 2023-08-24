@@ -4,11 +4,11 @@ use std::cell::RefCell;
 use std::sync::Arc;
 use std::time::Duration;
 
+use app_chain_runtime::opaque::Block;
+use app_chain_runtime::{self, Hash, RuntimeApi};
 use futures::channel::mpsc;
 use futures::future;
 use futures::prelude::*;
-use madara_runtime::opaque::Block;
-use madara_runtime::{self, Hash, RuntimeApi};
 use mc_block_proposer::ProposerFactory;
 use mc_mapping_sync::MappingSyncWorker;
 use mc_storage::overrides_handle;
@@ -49,11 +49,11 @@ impl sc_executor::NativeExecutionDispatch for ExecutorDispatch {
     type ExtendHostFunctions = ();
 
     fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
-        madara_runtime::api::dispatch(method, data)
+        app_chain_runtime::api::dispatch(method, data)
     }
 
     fn native_version() -> sc_executor::NativeVersion {
-        madara_runtime::native_version()
+        app_chain_runtime::native_version()
     }
 }
 
@@ -528,7 +528,7 @@ where
             inherent_data: &mut sp_inherents::InherentData,
         ) -> Result<(), sp_inherents::Error> {
             TIMESTAMP.with(|x| {
-                *x.borrow_mut() += madara_runtime::SLOT_DURATION;
+                *x.borrow_mut() += app_chain_runtime::SLOT_DURATION;
                 inherent_data.put_data(sp_timestamp::INHERENT_IDENTIFIER, &*x.borrow())
             })
         }
