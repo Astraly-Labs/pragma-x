@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use madara_runtime::opaque::Block;
+use app_chain_runtime::opaque::Block;
 use sc_service::Configuration;
 
 pub type MadaraBackend = mc_db::Backend<Block>;

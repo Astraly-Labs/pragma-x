@@ -37,19 +37,13 @@ impl pallet_starknet::Config for Runtime {
     type TimestampProvider = Timestamp;
     type UnsignedPriority = UnsignedPriority;
     type TransactionLongevity = TransactionLongevity;
-    #[cfg(not(feature = "madara-state-root"))]
-    type EnableStateRoot = ConstBool<false>;
-    #[cfg(feature = "madara-state-root")]
-    type EnableStateRoot = ConstBool<true>;
-    #[cfg(not(feature = "disable-transaction-fee"))]
     type DisableTransactionFee = ConstBool<false>;
-    #[cfg(feature = "disable-transaction-fee")]
-    type DisableTransactionFee = ConstBool<true>;
     type DisableNonceValidation = ConstBool<false>;
     type InvokeTxMaxNSteps = InvokeTxMaxNSteps;
     type ValidateMaxNSteps = ValidateMaxNSteps;
     type ProtocolVersion = ProtocolVersion;
     type ChainId = ChainId;
+    type MaxRecursionDepth = MaxRecursionDepth;
 }
 
 /// --------------------------------------
@@ -162,6 +156,7 @@ parameter_types! {
     pub const ValidateMaxNSteps: u32 = 1_000_000;
     pub const ProtocolVersion: u8 = 0;
     pub const ChainId: Felt252Wrapper = SN_GOERLI_CHAIN_ID;
+    pub const MaxRecursionDepth: u32 = 50;
 }
 
 /// Implement the OnTimestampSet trait to override the default Aura.
