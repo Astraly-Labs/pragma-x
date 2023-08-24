@@ -8,10 +8,10 @@
 mod starknet;
 use std::sync::Arc;
 
+use app_chain_runtime::opaque::Block;
+use app_chain_runtime::{AccountId, Hash, Index};
 use futures::channel::mpsc;
 use jsonrpsee::RpcModule;
-use madara_runtime::opaque::Block;
-use madara_runtime::{AccountId, Hash, Index};
 use mc_transaction_pool::{ChainApi, Pool};
 use pallet_starknet::runtime_api::StarknetRuntimeApi;
 use sc_client_api::{Backend, StorageProvider};
